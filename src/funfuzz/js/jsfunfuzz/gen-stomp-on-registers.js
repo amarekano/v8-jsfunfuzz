@@ -1,0 +1,56 @@
+
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+/* exported makeRegisterStompFunction */
+/* global Random, rnd */
+
+// Using up all the registers can find bugs where a caller does not store its
+// registers properly, or a callee violates an ABI.
+
+function makeRegisterStompFunction (d, b, pure) { /* eslint-disable-line require-jsdoc */
+  var args = [];
+  var nArgs = (rnd(10) ? rnd(20) : rnd(100)) + 1;
+  for (var i = 0; i < nArgs; ++i) {
+    args.push(`a${i}`);
+  }
+
+  var bv = b.concat(args);
+
+  return (
+    `(function(${args.join(", ")}) { ` +
+      makeRegisterStompBody(d, bv, pure) +
+      `return ${Random.index(bv)}; ` +
+    "})"
+  );
+}
+
+function makeRegisterStompBody (d, b, pure) { /* eslint-disable-line require-jsdoc */
+  var bv = b.slice(0);
+  var lastRVar = 0;
+  var s = "";
+
+  function value () { /* eslint-disable-line require-jsdoc */
+    return rnd(3) && bv.length ? Random.index(bv) : `${rnd(10)}`;
+  }
+
+  function expr () { /* eslint-disable-line require-jsdoc */
+    return value() + Random.index([" + ", " - ", " / ", " * ", " % ", " | ", " & ", " ^ "]) + value();
+  }
+
+  while (rnd(100)) {
+    if (bv.length === 0 || rnd(4)) {
+      var newVar = `r${lastRVar}`;
+      ++lastRVar;
+      s += `var ${newVar} = ${expr()}; `;
+      bv.push(newVar);
+    } else if (rnd(5) === 0 && !pure) {
+      s += `print(${Random.index(bv)}); `;
+    } else {
+      s += `${Random.index(bv)} = ${expr()}; `;
+    }
+  }
+
+  return s;
+}
